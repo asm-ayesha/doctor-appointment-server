@@ -3,6 +3,7 @@ const cors = require("cors");
 const dotenv = require("dotenv");
 const dns = require("dns");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+const { verify } = require("crypto");
 
 dotenv.config();
 
@@ -12,6 +13,7 @@ const app = express();
 const port = process.env.PORT || 5000;
 
 const uri = process.env.MONGODB_URI;
+
 
 // ✅ Middleware
 app.use(cors());
@@ -27,9 +29,15 @@ const client = new MongoClient(uri, {
 
 
 const logger = (req, res, next)=>{
-       console.log(`${req.method} | ${req.url}`)
+       console.log(`${req.method} | ${req.url} `)
        next();
 
+    }
+
+
+    const verifyToken = async(req, res, next) =>{
+      console.log(req.headers, 'from verify token')
+      next()
     }
 
 
@@ -47,7 +55,7 @@ async function run() {
     });
 
     // ✅ Get single doctor
-    app.get("/doctors/:doctorId",logger,async (req, res) => {
+    app.get("/doctors/:doctorId",logger,verifyToken,async (req, res) => {
 
       const doctorId = req.params.doctorId;
 
