@@ -11,7 +11,7 @@ dns.setDefaultResultOrder("ipv4first");
 const app = express();
 const port = process.env.PORT || 5000;
 
-const uri = process.env.DB_URI;
+const uri = process.env.MONGODB_URI;
 
 // ✅ Middleware
 app.use(cors());
@@ -24,6 +24,14 @@ const client = new MongoClient(uri, {
     deprecationErrors: true,
   },
 });
+
+
+const logger = (req, res, next)=>{
+       console.log(`${req.method} | ${req.url}`)
+       next();
+
+    }
+
 
 async function run() {
   try {
@@ -39,7 +47,8 @@ async function run() {
     });
 
     // ✅ Get single doctor
-    app.get("/doctors/:doctorId", async (req, res) => {
+    app.get("/doctors/:doctorId",logger,async (req, res) => {
+
       const doctorId = req.params.doctorId;
 
       const query = {
