@@ -4,6 +4,7 @@ const dotenv = require("dotenv");
 const dns = require("dns");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const { verify } = require("crypto");
+const { createRemoteJWKSet, jwtVerify } = require("jose-cjs");
 
 dotenv.config();
 
@@ -13,6 +14,14 @@ const app = express();
 const port = process.env.PORT || 5000;
 
 const uri = process.env.MONGODB_URI;
+
+
+
+const JWKS = createRemoteJWKSet( 
+  new URL(`${process.env.CLIENT_URL}/api/auth/jwks`)
+)
+
+
 
 
 // ✅ Middleware
@@ -36,8 +45,30 @@ const logger = (req, res, next)=>{
 
 
     const verifyToken = async(req, res, next) =>{
-      console.log(req.headers, 'from verify token')
-      next()
+      const {authorization} = req.headers
+      // console.log(req.headers, 'from verify token')
+      const token = authorization?.split(" ")[1];
+      
+      if(!token){
+        return res.status(401).json({message: 'Unauthorize' })
+      }
+
+      try {
+    const JWKS = createRemoteJWKSet(
+      new URL('http://localhost:3000/api/auth/jwks')
+    )
+    const { payload } = await jwtVerify(token, JWKS)
+    req.user = payload;
+
+    
+     next()
+  } catch (error) {
+    console.error('Token validation failed:', error)
+    return res.status(401).json({message: 'Unauthorize'})
+  }
+
+
+     
     }
 
 
@@ -47,10 +78,39 @@ async function run() {
 
     const db = client.db("doctor-appoinment");
     const doctorCollection = db.collection("doctors");
+    const appointmentCollection = db.collection("appointments");
+    
 
     // ✅ Get all doctors
     app.get("/doctors", async (req, res) => {
-      const result = await doctorCollection.find().toArray();
+      const {search} = req.query;
+
+      let cursor;
+      if(search){
+        // cursor = doctorCollection.find({name: {$regex: search, $options: "i"}});
+        cursor = doctorCollection.find({
+         $or:[
+            {
+              name:{
+                $regex: search,
+                $options: "i",
+              },
+            },
+            {
+              specialty:{
+                $regex: search,
+                $options: "i",
+              },
+            }
+         ]
+        });
+        
+      }else{
+        cursor = doctorCollection.find();
+      }
+
+
+      const result = await cursor.toArray();
       res.send(result);
     });
 
@@ -58,15 +118,22 @@ async function run() {
     app.get("/doctors/:doctorId",logger,verifyToken,async (req, res) => {
 
       const doctorId = req.params.doctorId;
-
       const query = {
         _id: new ObjectId(doctorId),
       };
-
       const result = await doctorCollection.findOne(query);
 
       res.send(result);
     });
+
+
+
+ 
+
+
+
+
+
 
     console.log("MongoDB Connected");
   } catch (error) {
@@ -77,7 +144,7 @@ async function run() {
 run();
 
 app.get("/", (req, res) => {
-  res.send("Server running");
+  res.json({ message: "Server running" });
 });
 
 app.listen(port, () => {
