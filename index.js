@@ -170,7 +170,7 @@ async function run() {
 
 
 
-  // post booking appointment
+  // post appointment
   app.post("/appointments", async(req, res) =>{ 
       const bookingData = req.body;
       const result = await appointmentCollection.insertOne(bookingData);
@@ -178,6 +178,59 @@ async function run() {
       res.send(result)
     
   })
+
+
+  // get bookings by user email
+    app.get("/my-bookings", async (req, res) => {
+      try {
+        const email = req.query.email;
+        const query = { userEmail: email };
+        const result = await appointmentCollection.find(query).toArray();
+        res.send(result);
+      } catch (error) {
+        res.status(500).send([]);
+      }
+    });
+
+
+    //  Delete appointment by ID
+    app.delete("/appointments/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const query = { _id: new ObjectId(id) };
+        const result = await appointmentCollection.deleteOne(query);
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ message: "Failed to delete" });
+      }
+    });
+
+
+
+    //  Update appointment by ID
+    app.put("/appointments/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const updatedData = req.body;
+        const query = { _id: new ObjectId(id) };
+        
+        const updateDoc = {
+          $set: {
+            patientName: updatedData.patientName,
+            gender: updatedData.gender,
+            phone: updatedData.phone,
+            date: updatedData.date,
+            time: updatedData.time,
+            reason: updatedData.reason
+          }
+        };
+
+        const result = await appointmentCollection.updateOne(query, updateDoc);
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ message: "Failed to update" });
+      }
+    });
 
 
 
