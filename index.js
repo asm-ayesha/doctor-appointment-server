@@ -44,32 +44,6 @@ const logger = (req, res, next) => {
 }
 
 
-// const verifyToken = async (req, res, next) => {
-//   const { authorization } = req.headers
-//   // console.log(req.headers, 'from verify token')
-//   const token = authorization?.split(" ")[1];
-
-//   if (!token) {
-//     return res.status(401).json({ message: 'Unauthorize' })
-//   }
-
-//   try {
-//     // const JWKS = createRemoteJWKSet(
-//     //   new URL('http://localhost:3000/api/auth/jwks')
-//     // )
-//     const { payload } = await jwtVerify(token, JWKS)
-//     req.user = payload;
-
-
-//     next()
-//   } catch (error) {
-//     console.error('Token validation failed:', error)
-//     return res.status(401).json({ message: 'Unauthorize' })
-//   }
-// }
-
-
-
 
 const verifyToken = async (req, res, next) => {
   const authorization = req.headers.authorization || req.headers.Authorization;
@@ -77,7 +51,6 @@ const verifyToken = async (req, res, next) => {
   const token = authorization?.split(" ")[1];
 
   if (!token) {
-    // console.log(" No token found in authorization header");
     return res.status(401).json({ message: 'Unauthorized: Missing Token' });
   }
 
@@ -87,31 +60,9 @@ const verifyToken = async (req, res, next) => {
     
     next();
   } catch (error) {
-   
-    // console.error(' Token validation failed:', error.message);
     return res.status(401).json({ message: 'Unauthorized: Invalid Token' });
   }
 };
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -122,15 +73,15 @@ async function run() {
     const db = client.db("doctor-appoinment");
     const doctorCollection = db.collection("doctors");
     const appointmentCollection = db.collection("appointments");
+    const usersCollection = db.collection("updateUsers");
 
 
-    // ✅ Get all doctors
+    // Get all doctors
     app.get("/doctors", async (req, res) => {
       const { search } = req.query;
 
       let cursor;
       if (search) {
-        // cursor = doctorCollection.find({name: {$regex: search, $options: "i"}});
         cursor = doctorCollection.find({
           $or: [
             {
@@ -231,6 +182,43 @@ async function run() {
         res.status(500).send({ message: "Failed to update" });
       }
     });
+
+
+
+
+
+    // PUT method update user route
+app.put('/updateUsers/update', async (req, res) => {
+  const { email, name, image } = req.body; 
+  
+  try {
+    const result = await usersCollection.updateOne(
+      { email: email }, 
+      { $set: { name: name, image: image } },
+      { upsert: true } 
+    );
+
+    res.status(200).send({ acknowledged: true, message: "Profile updated successfully" });
+  } catch (error) {
+    res.status(500).send({ message: "Server error", error });
+  }
+});
+
+
+
+
+app.get("/updateUsers/profile", async (req, res) => {
+  try {
+    const email = req.query.email;
+    if (!email) {
+      return res.status(400).send({ message: "Email is required" });
+    }
+    const result = await usersCollection.findOne({ email: email });
+    res.send(result);
+  } catch (error) {
+    res.status(500).send({ message: "Server error" });
+  }
+});
 
 
 
