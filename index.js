@@ -17,7 +17,7 @@ const uri = process.env.MONGODB_URI;
 
 
 
-const JWKS = createRemoteJWKSet( 
+const JWKS = createRemoteJWKSet(
   new URL(`${process.env.CLIENT_URL}/api/auth/jwks`)
 )
 
@@ -37,39 +37,82 @@ const client = new MongoClient(uri, {
 });
 
 
-const logger = (req, res, next)=>{
-       console.log(`${req.method} | ${req.url} `)
-       next();
+const logger = (req, res, next) => {
+  console.log(`${req.method} | ${req.url} `)
+  next();
 
-    }
+}
 
 
-    const verifyToken = async(req, res, next) =>{
-      const {authorization} = req.headers
-      // console.log(req.headers, 'from verify token')
-      const token = authorization?.split(" ")[1];
-      
-      if(!token){
-        return res.status(401).json({message: 'Unauthorize' })
-      }
+// const verifyToken = async (req, res, next) => {
+//   const { authorization } = req.headers
+//   // console.log(req.headers, 'from verify token')
+//   const token = authorization?.split(" ")[1];
 
-      try {
-    const JWKS = createRemoteJWKSet(
-      new URL('http://localhost:3000/api/auth/jwks')
-    )
-    const { payload } = await jwtVerify(token, JWKS)
-    req.user = payload;
+//   if (!token) {
+//     return res.status(401).json({ message: 'Unauthorize' })
+//   }
 
-    
-     next()
-  } catch (error) {
-    console.error('Token validation failed:', error)
-    return res.status(401).json({message: 'Unauthorize'})
+//   try {
+//     // const JWKS = createRemoteJWKSet(
+//     //   new URL('http://localhost:3000/api/auth/jwks')
+//     // )
+//     const { payload } = await jwtVerify(token, JWKS)
+//     req.user = payload;
+
+
+//     next()
+//   } catch (error) {
+//     console.error('Token validation failed:', error)
+//     return res.status(401).json({ message: 'Unauthorize' })
+//   }
+// }
+
+
+
+
+const verifyToken = async (req, res, next) => {
+  const authorization = req.headers.authorization || req.headers.Authorization;
+  
+  const token = authorization?.split(" ")[1];
+
+  if (!token) {
+    // console.log(" No token found in authorization header");
+    return res.status(401).json({ message: 'Unauthorized: Missing Token' });
   }
 
+  try {
+    const { payload } = await jwtVerify(token, JWKS);
+    req.user = payload;
+    
+    next();
+  } catch (error) {
+   
+    // console.error(' Token validation failed:', error.message);
+    return res.status(401).json({ message: 'Unauthorized: Invalid Token' });
+  }
+};
 
-     
-    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 async function run() {
@@ -79,33 +122,33 @@ async function run() {
     const db = client.db("doctor-appoinment");
     const doctorCollection = db.collection("doctors");
     const appointmentCollection = db.collection("appointments");
-    
+
 
     // ✅ Get all doctors
     app.get("/doctors", async (req, res) => {
-      const {search} = req.query;
+      const { search } = req.query;
 
       let cursor;
-      if(search){
+      if (search) {
         // cursor = doctorCollection.find({name: {$regex: search, $options: "i"}});
         cursor = doctorCollection.find({
-         $or:[
+          $or: [
             {
-              name:{
+              name: {
                 $regex: search,
                 $options: "i",
               },
             },
             {
-              specialty:{
+              specialty: {
                 $regex: search,
                 $options: "i",
               },
             }
-         ]
+          ]
         });
-        
-      }else{
+
+      } else {
         cursor = doctorCollection.find();
       }
 
@@ -114,9 +157,8 @@ async function run() {
       res.send(result);
     });
 
-    // ✅ Get single doctor
-    app.get("/doctors/:doctorId",logger,verifyToken,async (req, res) => {
-
+    //  Get single doctor
+    app.get("/doctors/:doctorId", logger, async (req, res) => {
       const doctorId = req.params.doctorId;
       const query = {
         _id: new ObjectId(doctorId),
@@ -128,7 +170,15 @@ async function run() {
 
 
 
- 
+  // post booking appointment
+  app.post("/appointments", async(req, res) =>{ 
+      const bookingData = req.body;
+      const result = await appointmentCollection.insertOne(bookingData);
+
+      res.send(result)
+    
+  })
+
 
 
 
